@@ -1,0 +1,258 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="text-center">
+    <div class = "mt-1" style="margin-top: 40px; margin-bottom: 40px;">
+        <h1 style="margin-top: 20px; margin-bottom: 20px; font-size: 27px;"><b>Borrow & Return Books</b></h1>
+        <p style="margin-top: 20px; margin-bottom: 20px;">Tanggal Hari ini: {{date}}</p>
+    </div>
+    <div class = "mt-2" style="margin-top: 40px; margin-bottom: 40px;">
+        <h3 style="margin-top: 20px; margin-bottom: 20px;"><b>Borrowed Books</b></h3>
+        <div class="borrowed-books">
+            <div class="row row-cols-1 row-cols-md-3 row-cols-sm-2 row-cols-xs-1 g-4"></div>
+        </div>
+    </div>
+    <div class = "mt-3" style="margin-top: 40px; margin-bottom: 40px;">
+        <h3 style="margin-top: 20px; margin-bottom: 20px;"><b>Book List</b></h3>
+        <div class="book-list">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="borrowModal" tabindex="-1" aria-labelledby="borrowModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" id="borrowModalLabel"><b>Borrow Book</b></h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form" onsubmit="return false;">
+                    {% csrf_token %}
+                    <input type="hidden" id="borrowbookId" name="bookId">
+                    <div class="mb-3">
+                        <label for="borrower" class="col-form-label">Borrower:</label>
+                        <label for="borrower" class="col-form-label">{{borrower}}</label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="Title" class="col-form-label">Title:</label>
+                        <label for="Title" class="col-form-label" id="borrowtitle"></label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="borrow_date" class="col-form-label">Borrow Date:</label>
+                        <label for="borrow_date" class="col-form-label">{{date}}</label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="return_date" class="col-form-label">Return Date:</label>
+                        <input type="date" class="form-control" id="return_date" name="return_date"></input>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded m-4" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded m-4" id="borrow" data-bs-dismiss="modal">Borrow</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="detailModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" id="detailModalLabel"><b>Book Detail</b></h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" class="text-gray-700"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form" onsubmit="return false;">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="bookId" class="col-form-label"><b>Book Id:</b></label>
+                        <label for="bookId" class="col-form-label" id="detailbookId"></label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="title" class="col-form-label"><b>Title:</b></label>
+                        <label for="title" class="col-form-label" id="detailtitle"></label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="Authors" class="col-form-label"><b>Authors:</b></label>
+                        <label for="Authors" class="col-form-label" id="authors"></label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="average_rating" class="col-form-label"><b>Average Rating:</b></label>
+                        <label for="average_rating" class="col-form-label" id="average_rating"></label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="language_code" class="col-form-label"><b>Language Code</b></label>
+                        <label for="language_code" class="col-form-label" id="language_code"></label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="num_pages" class="col-form-label"><b>Number Pages:</b></label>
+                        <label for="num_pages" class="col-form-label" id="num_pages"></label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="publication_date" class="col-form-label"><b>Publication Date</b></label>
+                        <label for="publication_date" class="col-form-label" id="publication_date"></label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="publisher" class="col-form-label"><b>Publisher:</b></label>
+                        <label for="publisher" class="col-form-label" id="publisher"></label>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function getBooks() {
+        return fetch("{% url 'book:get_books' %}").then((res) => res.json())
+    }
+    async function refreshBooks(filter = "") {
+        document.querySelector(".grid").innerHTML = "";
+        const books = await getBooks();
+        
+        books.forEach((item, index) => {
+            if (item.fields.title.toLowerCase().includes(filter.toLowerCase()) && item.fields.status) {
+                const bookCard = `
+                    <div class="col">
+                        <div class="max-w-sm rounded overflow-hidden shadow-lg mb-4">
+                            <img src="https://images.saymedia-content.com/.image/t_share/MTc0MjYyNTc5Mjg2MjU1MTAw/10-books-over-1000-pages-to-read.jpg" class="w-full" alt="${item.fields.title}">
+                            <div class="px-6 py-4">
+                                <h4 class="font-bold text-xl mb-2">${item.fields.title}</h4>
+                                <p class="text-gray-700 text-base">${item.fields.authors}</p>
+                            </div>
+                            <ul class="list-none bg-white rounded-b-lg">
+                                <li class="text-gray-700 text-base px-6 py-4">Rating: ${item.fields.average_rating}</li>
+                            </ul>
+                            <a onclick= "openDetailModal('${item.fields.bookID}','${item.fields.title}','${item.fields.authors}', '${item.fields.average_rating}', '${item.fields.language_code}', '${item.fields.num_pages}', '${item.fields.publication_date}', '${item.fields.publisher}')">
+                                <button type="button" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded m-4">Detail</button>
+                            </a>
+                            <a onclick= "openBorrowModal(${item.pk},'${item.fields.title}')">
+                                <button type="button" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded m-4">Borrow</button>
+                            </a>
+                        </div>
+                    </div>`;
+                
+                const row = document.querySelector(".grid");
+                row.innerHTML += bookCard;
+            }
+        });
+    }
+
+    function handleSearch() {
+        const searchText = document.querySelector('.form-control').value;
+        refreshBooks(searchText);
+    }
+
+    document.querySelector('.d-flex').addEventListener('submit', (event) => {
+        event.preventDefault();
+        handleSearch();
+    });
+
+    document.querySelector('.form-control').addEventListener('keyup', (event) => {
+        if (event.key === 'Enter') {
+            handleSearch();
+        }
+    });
+
+    document.querySelector('.btn-outline-success').addEventListener('click', (event) => {
+        handleSearch();
+    });
+
+    refreshBooks();
+
+    async function openDetailModal(bookId, title, authors, average_rating, language_code, num_pages, publication_date, publisher){
+        document.getElementById('detailbookId').innerText = bookId;
+        document.getElementById('detailtitle').innerText = title;
+        document.getElementById('authors').innerText = authors;
+        document.getElementById('average_rating').innerText = average_rating;
+        document.getElementById('language_code').innerText = language_code;
+        document.getElementById('num_pages').innerText = num_pages;
+        document.getElementById('publication_date').innerText = publication_date;
+        document.getElementById('publisher').innerText = publisher;
+
+        const detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
+        detailModal.show();
+    }
+
+    async function openBorrowModal(bookId, title){
+        document.getElementById('borrowbookId').value = bookId;
+        document.getElementById('borrowtitle').innerText = title;
+
+        const borrowModal = new bootstrap.Modal(document.getElementById('borrowModal'));
+        borrowModal.show();
+    }
+
+    async function borrowBook(){
+        const bookId = document.getElementById('bookId').value;
+        const return_date = document.getElementById('return_date').value;
+
+        const formData = new FormData()
+        formData.append("id", bookId)
+        formData.append("return_date", return_date)
+        fetch(`{% url 'borrow_book:borrow_book' %}`, {
+            method: "POST",
+            body: formData
+        }).then(() => {
+            refreshBooks();
+            refreshBorrow();
+        });
+        return false
+    }
+
+    document.getElementById("borrow").addEventListener("click", function(event){
+        event.preventDefault();
+        borrowBook();
+    });
+
+    async function getBorrow() {
+        return fetch("{% url 'borrow_book:get_borrow' %}").then((res) => res.json())
+    }
+
+    async function refreshBorrow(filter = ""){
+        document.querySelector(".row").innerHTML = "";
+        const borrows = await getBorrow();
+        borrows.forEach((borrow, index) => {
+            if (borrow.fields.book.title.toLowerCase().includes(filter.toLowerCase())) {
+                const bookCard = `
+                    <div class="col">
+                        <div class="card mb-4">
+                            <img src="https://images.saymedia-content.com/.image/t_share/MTc0MjYyNTc5Mjg2MjU1MTAw/10-books-over-1000-pages-to-read.jpg" class="card-img-top" alt="${borrow.fields.book.title}">
+                            <div class="card-body">
+                                <h4 class="card-title">${borrow.fields.book.title}</h3>
+                                <p class="card-text">${borrow.fields.book.authors}</p>
+                            </div>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item">Tanggal Peminjaman: ${item.fields.borrow_date}</li>
+                                <li class="list-group-item">Tanggal Pengembalian: ${item.fields.return_date}</li>
+                            </ul>
+                            <button type="button" class="btn btn-sm btn-primary" onclick="returnBook(${item.pk})">Return</button>
+                        </div>
+                    </div>`;
+                const row = document.querySelector(".row");
+                row.innerHTML += bookCard;
+            }
+        });
+    }
+
+    async function returnBook(id){
+        const formData = new FormData()
+        formData.append("id", id)
+        fetch("{% url 'borrow_book:return_book' %}", {
+            method: "POST",
+            body: formData
+        }).then(() => {
+            refreshBooks();
+            refreshBorrow();
+        });
+        return false
+    }
+
+    refreshBooks();
+    refreshBorrow();
+</script>
+{% endblock content %}
